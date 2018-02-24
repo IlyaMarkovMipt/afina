@@ -43,19 +43,32 @@ TEST(StorageTest, PutIfAbsent) {
     MapBasedGlobalLockImpl storage;
 
     storage.Put("KEY1", "val1");
-    storage.PutIfAbsent("KEY1", "val2");
+    EXPECT_FALSE(storage.PutIfAbsent("KEY1", "val2"));
 
     std::string value;
     EXPECT_TRUE(storage.Get("KEY1", value));
     EXPECT_TRUE(value == "val1");
 }
 
+TEST(StorageTest, Delete) {
+	MapBasedGlobalLockImpl storage;
+
+	storage.Put("key1", "val1");
+	storage.Put("key2", "val2");
+
+	EXPECT_TRUE(storage.Delete("key1"));
+	std::string value;
+	EXPECT_FALSE(storage.Get("key1", value));
+	EXPECT_TRUE(storage.Get("key2",value));
+	EXPECT_EQ(value, "val2");
+}
+
 TEST(StorageTest, BigTest) {
-    MapBasedGlobalLockImpl storage(100000);
+    MapBasedGlobalLockImpl storage(1000);
 
     std::stringstream ss;
 
-    for(long i=0; i<100000; ++i)
+    for(long i=0; i<100; ++i)
     {
         ss << "Key" << i;
         std::string key = ss.str();
@@ -66,7 +79,7 @@ TEST(StorageTest, BigTest) {
         storage.Put(key, val);
     }
     
-    for(long i=99999; i>=0; --i)
+    for(long i=99; i>=0; --i)
     {
         ss << "Key" << i;
         std::string key = ss.str();
@@ -77,18 +90,17 @@ TEST(StorageTest, BigTest) {
         
         std::string res;
         storage.Get(key, res);
-
         EXPECT_TRUE(val == res);
     }
 
 }
 
 TEST(StorageTest, MaxTest) {
-    MapBasedGlobalLockImpl storage(1000);
+    MapBasedGlobalLockImpl storage(900);
 
     std::stringstream ss;
 
-    for(long i=0; i<1100; ++i)
+    for(long i=0; i<100; ++i)
     {
         ss << "Key" << i;
         std::string key = ss.str();
@@ -99,7 +111,7 @@ TEST(StorageTest, MaxTest) {
         storage.Put(key, val);
     }
     
-    for(long i=100; i<1100; ++i)
+    for(long i=10; i<100; ++i)
     {
         ss << "Key" << i;
         std::string key = ss.str();
@@ -114,7 +126,7 @@ TEST(StorageTest, MaxTest) {
         EXPECT_TRUE(val == res);
     }
     
-    for(long i=0; i<100; ++i)
+    for(long i=0; i<10; ++i)
     {
         ss << "Key" << i;
         std::string key = ss.str();

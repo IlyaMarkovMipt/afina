@@ -1,5 +1,6 @@
 .idea
 generated/*
+*.a
 
 # local cmake builds
 /build
@@ -12,3 +13,31 @@ config/_local.conf
 .vscode
 compile_commands.json
 cquery_log.txt
+
+#cmake
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+
+# src specific
+src/Version.cpp
+
+afina.cbp
+src/Version.cpp
+test/allocator/runAllocatorTests
+test/coroutine/runCoroutineTests
+test/storage/runStorageTests
+third-party/backward-cpp/backward.cbp
+third-party/cxxopts-1.4.3/cxxopts-config-version.cmake
+third-party/cxxopts-1.4.3/cxxopts-config.cmake
+third-party/cxxopts-1.4.3/cxxopts-targets.cmake
+third-party/cxxopts-1.4.3/cxxopts.cbp
+third-party/googletest-release-1.8.0/googlemock/gmock.cbp
+third-party/googletest-release-1.8.0/googlemock/gtest/
+third-party/googletest-release-1.8.0/googletest-distribution.cbp
