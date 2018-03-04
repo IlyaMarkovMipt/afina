@@ -22,9 +22,12 @@ typedef struct {
 // Handle all signals catched
 void signal_handler(uv_signal_t *handle, int signum) {
     Application *pApp = static_cast<Application *>(handle->data);
-
+    pApp->server->Stop();
+    pApp->server->Join();
+    pApp->storage->Stop();
     std::cout << "Receive stop signal" << std::endl;
     uv_stop(handle->loop);
+    exit(0);
 }
 
 // Called when it is time to collect passive metrics from services
@@ -99,10 +102,16 @@ int main(int argc, char **argv) {
     uv_loop_t loop;
     uv_loop_init(&loop);
 
-    uv_signal_t sig;
-    uv_signal_init(&loop, &sig);
-    uv_signal_start(&sig, signal_handler, SIGTERM | SIGKILL);
-    sig.data = &app;
+    uv_signal_t sig1, sig2, sig3;
+    uv_signal_init(&loop, &sig1);
+    uv_signal_start(&sig1, signal_handler, SIGTERM);
+    uv_signal_init(&loop, &sig2);
+    uv_signal_start(&sig2, signal_handler, SIGKILL);
+    uv_signal_init(&loop, &sig3);
+    uv_signal_start(&sig3, signal_handler, SIGINT);
+    sig1.data = &app;
+    sig2.data = &app;
+    sig3.data = &app;
 
     uv_timer_t timer;
     uv_timer_init(&loop, &timer);
@@ -127,6 +136,9 @@ int main(int argc, char **argv) {
     } catch (std::exception &e) {
         std::cerr << "Fatal error" << e.what() << std::endl;
     }
+    uv_signal_stop(&sig1);
+    uv_signal_stop(&sig2);
+    uv_signal_stop(&sig3);
 
     return 0;
 }

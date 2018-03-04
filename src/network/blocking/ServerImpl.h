@@ -8,6 +8,7 @@
 #include <unordered_set>
 
 #include <afina/network/Server.h>
+#include <afina/Executor.h>
 
 namespace Afina {
 namespace Network {
@@ -38,15 +39,20 @@ protected:
     void RunAcceptor();
 
     /**
-     * Methos is running for each connection
+     * Method is running for each connection
      */
-    void RunConnection();
+    void RunConnection(int cl_sock);
 
 private:
     static void *RunAcceptorProxy(void *p);
 
+    static void *RunConnectionProxy(void *p);
+
+    void closeConnection(int cl_sock);
+    // Size if buffer used in parsing
+    static const size_t BUFFER_SIZE = 1024;
     // Atomic flag to notify threads when it is time to stop. Note that
-    // flag must be atomic in order to safely publisj changes cross thread
+    // flag must be atomic in order to safely publish changes cross thread
     // bounds
     std::atomic<bool> running;
 
@@ -73,6 +79,11 @@ private:
     // Threads that are processing connection data, permits
     // access only from inside of accept_thread
     std::unordered_set<pthread_t> connections;
+
+    // Main socket
+    int server_socket;
+
+    Executor executor;
 };
 
 } // namespace Blocking
