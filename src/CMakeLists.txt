@@ -14,7 +14,7 @@ set(version_file "${CMAKE_CURRENT_BINARY_DIR}/Version.cpp")
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Version.cpp.in ${version_file})
 
 # build service
-set(SOURCE_FILES main.cpp ${version_file})
+set(SOURCE_FILES Executor.cpp main.cpp ${version_file})
 add_executable(afina ${SOURCE_FILES} ${BACKWARD_ENABLE})
 target_link_libraries(afina Network Storage cxxopts)
 add_backward(afina)

@@ -8,13 +8,22 @@
 #include <queue>
 #include <string>
 #include <thread>
+#include <set>
+#include <atomic>
+#include <chrono>
 
 namespace Afina {
+
+class Executor;
+
+void perform(Executor &executor);
+
 
 /**
  * # Thread pool
  */
 class Executor {
+    const std::chrono::seconds sec = std::chrono::seconds(1);
     enum class State {
         // Threadpool is fully operational, tasks could be added and get executed
         kRun,
@@ -27,7 +36,75 @@ class Executor {
         kStopped
     };
 
-    Executor(std::string name, int size);
+    // No copy/move/assign allowed
+    Executor(const Executor &);            // = delete;
+    Executor(Executor &&);                 // = delete;
+    Executor &operator=(const Executor &); // = delete;
+    Executor &operator=(Executor &&);      // = delete;
+
+    /**
+     * Main function that all pool threads are running. It polls internal task queue and execute tasks
+     */
+    friend void perform(Executor &executor);
+
+    /**
+     * Mutex to protect state below from concurrent modification
+     */
+    std::mutex mutex;
+
+    /**
+     * Conditional variable to await new data in case of empty queue
+     */
+    std::condition_variable empty_condition;
+
+    /**
+     * Conditional variable to await finish
+     */
+    std::condition_variable finish_condition;
+
+    /**
+     * Mutex to protect threads from concurrent modification
+     */
+    std::mutex threads_mutex;
+
+    /**
+     * Vector of actual threads that perform execution
+     */
+    std::set<std::thread::id> threads;
+    /**
+     * Task queue
+     */
+    std::deque<std::function<void()>> tasks;
+    /**
+     * Atomic flag to notify threads when it is time to stop. Note that
+     * flag must be atomic in order to safely publish changes cross thread
+     * bounds
+     */
+    std::atomic<State> state;
+    /**
+     * Max number of tasks. No new tasks are accepted if this threshold is reached
+     */
+    int Q_size;
+
+    /**
+     * Maximum number of threads
+     */
+    int high_watermark;
+
+    /**
+     * Minimum number of threads
+     */
+    int low_watermark;
+
+    /**
+     * Time thread waits waking in idle state
+     */
+    std::chrono::duration<int> idle_time;
+
+    int sleeping_threads;
+
+public:
+    Executor(int q_size=10, int high_wm=5, int low_wm=2, int idle_time = 10);
     ~Executor();
 
     /**
@@ -45,57 +122,29 @@ class Executor {
      * That function doesn't wait for function result. Function could always be written in a way to notify caller about
      * execution finished by itself
      */
-    template <typename F, typename... Types> bool Execute(F &&func, Types... args) {
+    template <typename F, typename... Types> bool Execute(F &&func, Types... args){
         // Prepare "task"
         auto exec = std::bind(std::forward<F>(func), std::forward<Types>(args)...);
 
-        std::unique_lock<std::mutex> lock(this->mutex);
-        if (state != State::kRun) {
+        if (state.load() != State::kRun) {
             return false;
         }
-
+        std::unique_lock<std::mutex> lock(this->mutex);
+        if (tasks.size() >= Q_size) {
+            return false;
+        }
+        if (sleeping_threads == 0 &&
+            threads.size() < high_watermark) {
+            std::thread *thread = new std::thread(perform, std::ref(*this));
+            threads.insert(thread->get_id());
+            thread->detach();
+        }
         // Enqueue new task
         tasks.push_back(exec);
         empty_condition.notify_one();
         return true;
     }
 
-private:
-    // No copy/move/assign allowed
-    Executor(const Executor &);            // = delete;
-    Executor(Executor &&);                 // = delete;
-    Executor &operator=(const Executor &); // = delete;
-    Executor &operator=(Executor &&);      // = delete;
-
-    /**
-     * Main function that all pool threads are running. It polls internal task queue and execute tasks
-     */
-    friend void perform(Executor *executor);
-
-    /**
-     * Mutex to protect state below from concurrent modification
-     */
-    std::mutex mutex;
-
-    /**
-     * Conditional variable to await new data in case of empty queue
-     */
-    std::condition_variable empty_condition;
-
-    /**
-     * Vector of actual threads that perorm execution
-     */
-    std::vector<std::thread> threads;
-
-    /**
-     * Task queue
-     */
-    std::deque<std::function<void()>> tasks;
-
-    /**
-     * Flag to stop bg threads
-     */
-    State state;
 };
 
 } // namespace Afina
