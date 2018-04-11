@@ -1,7 +1,7 @@
 #ifndef AFINA_NETWORK_NONBLOCKING_SERVER_H
 #define AFINA_NETWORK_NONBLOCKING_SERVER_H
 
-#include <vector>
+#include <list>
 
 #include <afina/network/Server.h>
 
@@ -37,7 +37,7 @@ private:
     uint32_t listen_port;
 
     // Thread that is accepting new connections
-    std::vector<Worker> workers;
+    std::list<std::reference_wrapper<Worker>> workers;
 };
 
 } // namespace NonBlocking

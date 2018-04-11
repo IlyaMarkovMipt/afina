@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <cstring>
 
 namespace Afina {
 namespace Network {
@@ -17,7 +18,7 @@ void make_socket_non_blocking(int sfd) {
 
     flags = fcntl(sfd, F_GETFL, 0);
     if (flags == -1) {
-        throw std::runtime_error("Failed to call fcntl to get socket flags");
+        throw std::runtime_error("Failed to call fcntl to get socket flags: " + std::string(std::strerror(errno)));
     }
 
     flags |= O_NONBLOCK;
