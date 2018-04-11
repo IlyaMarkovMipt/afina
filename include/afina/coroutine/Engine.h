@@ -20,6 +20,11 @@ private:
      * A single coroutine instance which could be scheduled for execution
      * should be allocated on heap
      */
+    enum routing_state {
+            ROUTINE_RUNNING,
+            ROUTINE_SUSPENDED,
+            ROUTINE_DEAD,
+    };
     struct context;
     typedef struct context {
         // coroutine stack start address
@@ -34,9 +39,18 @@ private:
         // Saved coroutine context (registers)
         jmp_buf Environment;
 
+        // Coroutine that has started this one. Once current routine is done, control must
+        // be passed back to caller
+        struct context* caller = nullptr;
+
+        // Coroutine got control from the current one. Whenever current routine
+        // continues self exectution it must transfers control to callee if any
+        struct context* callee = nullptr;
+
         // To include routine in the different lists, such as "alive", "blocked", e.t.c
         struct context *prev = nullptr;
         struct context *next = nullptr;
+        routing_state State;
     } context;
 
     /**
@@ -113,7 +127,6 @@ public:
         // To acquire stack begin, create variable on stack and remember its address
         char StackStartsHere;
         this->StackBottom = &StackStartsHere;
-
         // Start routine execution
         void *pc = run(main, std::forward<Ta>(args)...);
         idle_ctx = new context();
@@ -125,7 +138,6 @@ public:
             Store(*idle_ctx);
             sched(pc);
         }
-
         // Shutdown runtime
         delete idle_ctx;
         this->StackBottom = 0;
@@ -153,7 +165,7 @@ public:
 
             // invoke routine
             func(std::forward<Ta>(args)...);
-
+            context *next = pc->caller;
             // Routine has completed its execution, time to delete it. Note that we should be extremely careful in where
             // to pass control after that. We never want to go backward by stack as that would mean to go backward in
             // time. Function run() has already return once (when setjmp returns 0), so return second return from run
@@ -170,6 +182,7 @@ public:
                 alive = alive->next;
             }
 
+            pc->State = ROUTINE_DEAD;
             // current coroutine finished, and the pointer is not relevant now
             cur_routine = nullptr;
             pc->prev = pc->next = nullptr;
@@ -179,7 +192,11 @@ public:
             // We cannot return here, as this function "returned" once already, so here we must select some other
             // coroutine to run. As current coroutine is completed and can't be scheduled anymore, it is safe to
             // just give up and ask scheduler code to select someone else, control will never returns to this one
-            Restore(*idle_ctx);
+            if (next != nullptr) {
+                sched(next);
+            } else {
+                Restore(*idle_ctx);
+            }
         }
 
         // setjmp remembers position from which routine could starts execution, but to make it correctly
@@ -193,7 +210,7 @@ public:
         if (pc->next != nullptr) {
             pc->next->prev = pc;
         }
-
+        pc->State = ROUTINE_RUNNING;
         return pc;
     }
 };
